@@ -23,16 +23,17 @@ pub fn handle_udp_packet(interface_name: &str, source: IpAddr, destination: IpAd
                 udp_destination,
                 udp.get_length()
             );
+        } else {
+            println!(
+                "[{}]: {}:{} \x1b[33m====== [UDP] =====>\x1b[0m {}:{}; length: {}",
+                interface_name,
+                source,
+                udp_source,
+                destination,
+                udp_destination,
+                udp.get_length()
+            );
         }
-        println!(
-            "[{}]: {}:{} \x1b[33m====== [UDP] =====>\x1b[0m {}:{}; length: {}",
-            interface_name,
-            source,
-            udp_source,
-            destination,
-            udp_destination,
-            udp.get_length()
-        );
     } else {
         println!("[{}]: Malformed UDP Packet", interface_name);
     }
