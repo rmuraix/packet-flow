@@ -11,13 +11,26 @@ pub fn handle_udp_packet(interface_name: &str, source: IpAddr, destination: IpAd
     let udp = UdpPacket::new(packet);
 
     if let Some(udp) = udp {
+        let udp_source = udp.get_source();
+        let udp_destination = udp.get_destination();
+        if (udp_source == 53) || (udp_destination == 53) {
+            println!(
+                "[{}]: {}:{} \x1b[33m====== [UDP/DNS] =====>\x1b[0m {}:{}; length: {}",
+                interface_name,
+                source,
+                udp_source,
+                destination,
+                udp_destination,
+                udp.get_length()
+            );
+        }
         println!(
             "[{}]: {}:{} \x1b[33m====== [UDP] =====>\x1b[0m {}:{}; length: {}",
             interface_name,
             source,
-            udp.get_source(),
+            udp_source,
             destination,
-            udp.get_destination(),
+            udp_destination,
             udp.get_length()
         );
     } else {
