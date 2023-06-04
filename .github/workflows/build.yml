@@ -29,15 +29,20 @@ jobs:
       - name: Build(release)
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: cargo build --release
+      - name: Generate license.html
+        run: |
+          cargo install --locked cargo-about
+          cargo about generate about.hbs > license.html
       - uses: actions/upload-artifact@v3
         with:
           name: artifact-${{ matrix.os }}
           path: |
             ./target/*/packet-flow
+            license.html
       - name: Package
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: |
-          tar czvf packet-flow_"$RUNNER_OS"_x64.tgz ./target/release/packet-flow
+          tar czvf packet-flow_"$RUNNER_OS"_x64.tgz ./target/release/packet-flow license.html
       - name: Release
         uses: softprops/action-gh-release@v1
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
