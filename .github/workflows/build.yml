@@ -30,6 +30,7 @@ jobs:
         if: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: cargo build --release
       - name: Generate license.html
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
         run: |
           cargo install --locked cargo-about
           cargo about generate about.hbs > license.html
