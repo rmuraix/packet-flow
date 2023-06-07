@@ -28,6 +28,19 @@ fn main() {
 
     // Find the network interface with the provided name
     let interfaces = datalink::interfaces();
+    // Get device's IP addres
+    let mut ips: Vec<String> = Vec::new();
+    for interface in &interfaces {
+        if !interface.ips.is_empty() && interface.is_up() {
+            for ip_net in &interface.ips {
+                if !ip_net.ip().is_loopback() {
+                    ips.push(ip_net.ip().to_string());
+                }
+            }
+        }
+    }
+    println!("IP address of this device:{:?}", ips);
+
     let interface = interfaces
         .into_iter()
         .filter(interface_names_match)
