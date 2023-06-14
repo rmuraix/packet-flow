@@ -19,10 +19,13 @@ pub fn handle_transport_protocol(
     destination: IpAddr,
     protocol: IpNextHeaderProtocol,
     packet: &[u8],
+    noudp: bool,
 ) {
     match protocol {
         IpNextHeaderProtocols::Udp => {
-            packets::handle_udp_packet(interface_name, source, destination, packet)
+            if !noudp {
+                packets::handle_udp_packet(interface_name, source, destination, packet)
+            }
         }
         IpNextHeaderProtocols::Tcp => {
             packets::handle_tcp_packet(interface_name, source, destination, packet)
@@ -48,7 +51,7 @@ pub fn handle_transport_protocol(
     }
 }
 
-pub fn handle_ipv4_packet(interface_name: &str, ethernet: &EthernetPacket) {
+pub fn handle_ipv4_packet(interface_name: &str, ethernet: &EthernetPacket, noudp: bool) {
     let header = Ipv4Packet::new(ethernet.payload());
     if let Some(header) = header {
         handle_transport_protocol(
@@ -57,13 +60,14 @@ pub fn handle_ipv4_packet(interface_name: &str, ethernet: &EthernetPacket) {
             IpAddr::V4(header.get_destination()),
             header.get_next_level_protocol(),
             header.payload(),
+            noudp,
         );
     } else {
         println!("[{}]: Malformed IPv4 Packet", interface_name);
     }
 }
 
-pub fn handle_ipv6_packet(interface_name: &str, ethernet: &EthernetPacket) {
+pub fn handle_ipv6_packet(interface_name: &str, ethernet: &EthernetPacket, noudp: bool) {
     let header = Ipv6Packet::new(ethernet.payload());
     if let Some(header) = header {
         handle_transport_protocol(
@@ -72,6 +76,7 @@ pub fn handle_ipv6_packet(interface_name: &str, ethernet: &EthernetPacket) {
             IpAddr::V6(header.get_destination()),
             header.get_next_header(),
             header.payload(),
+            noudp,
         );
     } else {
         println!("[{}]: Malformed IPv6 Packet", interface_name);
@@ -95,11 +100,11 @@ pub fn handle_arp_packet(interface_name: &str, ethernet: &EthernetPacket) {
     }
 }
 
-pub fn handle_ethernet_frame(interface: &NetworkInterface, ethernet: &EthernetPacket) {
+pub fn handle_ethernet_frame(interface: &NetworkInterface, ethernet: &EthernetPacket, noudp: bool) {
     let interface_name = &interface.name[..];
     match ethernet.get_ethertype() {
-        EtherTypes::Ipv4 => handle_ipv4_packet(interface_name, ethernet),
-        EtherTypes::Ipv6 => handle_ipv6_packet(interface_name, ethernet),
+        EtherTypes::Ipv4 => handle_ipv4_packet(interface_name, ethernet, noudp),
+        EtherTypes::Ipv6 => handle_ipv6_packet(interface_name, ethernet, noudp),
         EtherTypes::Arp => handle_arp_packet(interface_name, ethernet),
         _ => println!(
             "[{}]: {} ===== [Unknown] =====> {}; ethertype: {:?} length: {}",

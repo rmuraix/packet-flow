@@ -16,6 +16,9 @@ struct Cli {
     /// Name of the network interface
     #[arg(short, long, value_name = "NETWORK INTERFACE")]
     interface: String,
+    /// Do not display UDP
+    #[arg(long)]
+    noudp: bool,
 }
 
 fn main() {
@@ -85,6 +88,7 @@ fn main() {
                             handler::handle_ethernet_frame(
                                 &interface,
                                 &fake_ethernet_frame.to_immutable(),
+                                cli.noudp,
                             );
                             continue;
                         } else if version == 6 {
@@ -95,12 +99,17 @@ fn main() {
                             handler::handle_ethernet_frame(
                                 &interface,
                                 &fake_ethernet_frame.to_immutable(),
+                                cli.noudp,
                             );
                             continue;
                         }
                     }
                 }
-                handler::handle_ethernet_frame(&interface, &EthernetPacket::new(packet).unwrap());
+                handler::handle_ethernet_frame(
+                    &interface,
+                    &EthernetPacket::new(packet).unwrap(),
+                    cli.noudp,
+                );
             }
             Err(e) => panic!("packet-flow: unable to receive packet: {}", e),
         }
