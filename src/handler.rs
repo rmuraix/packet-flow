@@ -13,6 +13,21 @@ use pnet::packet::Packet;
 
 use std::net::IpAddr;
 
+fn check_which(source: IpAddr, destination: IpAddr, ips: Vec<IpAddr>) -> String {
+    let mut direction: String = "".to_string();
+    for i in ips {
+        if i == source {
+            direction = "right".to_string();
+            break;
+        } else if i == destination {
+            direction = "left".to_string();
+            break;
+        } else {
+            direction = "none".to_string();
+        }
+    }
+    direction
+}
 pub fn handle_transport_protocol(
     interface_name: &str,
     source: IpAddr,

@@ -2,6 +2,8 @@ mod handler;
 
 extern crate pnet;
 
+use std::net::IpAddr;
+
 use pnet::datalink::{self, NetworkInterface};
 
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket, MutableEthernetPacket};
@@ -32,12 +34,12 @@ fn main() {
     // Find the network interface with the provided name
     let interfaces = datalink::interfaces();
     // Get device's IP addres
-    let mut ips: Vec<String> = Vec::new();
+    let mut ips: Vec<IpAddr> = Vec::new();
     for interface in &interfaces {
         if !interface.ips.is_empty() && interface.is_up() {
             for ip_net in &interface.ips {
                 if !ip_net.ip().is_loopback() {
-                    ips.push(ip_net.ip().to_string());
+                    ips.push(ip_net.ip());
                 }
             }
         }
