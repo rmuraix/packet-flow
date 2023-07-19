@@ -223,7 +223,7 @@ checksum = "9670a07f94779e00908f3e686eab508878ebb390ba6e604d3a284c00e8d0487b"
 
 [[package]]
 name = "packet-flow"
-version = "0.1.1"
+version = "1.0.0"
 dependencies = [
  "clap",
  "pnet",
