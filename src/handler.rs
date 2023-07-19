@@ -1,3 +1,4 @@
+mod direction;
 mod packets;
 
 extern crate pnet;
@@ -13,43 +14,29 @@ use pnet::packet::Packet;
 
 use std::net::IpAddr;
 
-fn check_which(source: IpAddr, destination: IpAddr, ips: Vec<IpAddr>) -> String {
-    let mut direction: String = "".to_string();
-    for i in ips {
-        if i == source {
-            direction = "right".to_string();
-            break;
-        } else if i == destination {
-            direction = "left".to_string();
-            break;
-        } else {
-            direction = "none".to_string();
-        }
-    }
-    direction
-}
 pub fn handle_transport_protocol(
     interface_name: &str,
     source: IpAddr,
     destination: IpAddr,
     protocol: IpNextHeaderProtocol,
     packet: &[u8],
+    ips: Vec<IpAddr>,
     noudp: bool,
 ) {
     match protocol {
         IpNextHeaderProtocols::Udp => {
             if !noudp {
-                packets::handle_udp_packet(interface_name, source, destination, packet)
+                packets::handle_udp_packet(interface_name, source, destination, packet, ips)
             }
         }
         IpNextHeaderProtocols::Tcp => {
-            packets::handle_tcp_packet(interface_name, source, destination, packet)
+            packets::handle_tcp_packet(interface_name, source, destination, packet, ips)
         }
         IpNextHeaderProtocols::Icmp => {
-            packets::handle_icmp_packet(interface_name, source, destination, packet)
+            packets::handle_icmp_packet(interface_name, source, destination, packet, ips)
         }
         IpNextHeaderProtocols::Icmpv6 => {
-            packets::handle_icmpv6_packet(interface_name, source, destination, packet)
+            packets::handle_icmpv6_packet(interface_name, source, destination, packet, ips)
         }
         _ => println!(
             "[{}]: {} ===== [Unknown {} packet] =====> {}; protocol: {:?} length: {}",
@@ -66,7 +53,12 @@ pub fn handle_transport_protocol(
     }
 }
 
-pub fn handle_ipv4_packet(interface_name: &str, ethernet: &EthernetPacket, noudp: bool) {
+pub fn handle_ipv4_packet(
+    interface_name: &str,
+    ethernet: &EthernetPacket,
+    ips: Vec<IpAddr>,
+    noudp: bool,
+) {
     let header = Ipv4Packet::new(ethernet.payload());
     if let Some(header) = header {
         handle_transport_protocol(
@@ -75,6 +67,7 @@ pub fn handle_ipv4_packet(interface_name: &str, ethernet: &EthernetPacket, noudp
             IpAddr::V4(header.get_destination()),
             header.get_next_level_protocol(),
             header.payload(),
+            ips,
             noudp,
         );
     } else {
@@ -82,7 +75,12 @@ pub fn handle_ipv4_packet(interface_name: &str, ethernet: &EthernetPacket, noudp
     }
 }
 
-pub fn handle_ipv6_packet(interface_name: &str, ethernet: &EthernetPacket, noudp: bool) {
+pub fn handle_ipv6_packet(
+    interface_name: &str,
+    ethernet: &EthernetPacket,
+    ips: Vec<IpAddr>,
+    noudp: bool,
+) {
     let header = Ipv6Packet::new(ethernet.payload());
     if let Some(header) = header {
         handle_transport_protocol(
@@ -91,6 +89,7 @@ pub fn handle_ipv6_packet(interface_name: &str, ethernet: &EthernetPacket, noudp
             IpAddr::V6(header.get_destination()),
             header.get_next_header(),
             header.payload(),
+            ips,
             noudp,
         );
     } else {
@@ -98,29 +97,47 @@ pub fn handle_ipv6_packet(interface_name: &str, ethernet: &EthernetPacket, noudp
     }
 }
 
-pub fn handle_arp_packet(interface_name: &str, ethernet: &EthernetPacket) {
+pub fn handle_arp_packet(interface_name: &str, ethernet: &EthernetPacket, ips: Vec<IpAddr>) {
     let header = ArpPacket::new(ethernet.payload());
     if let Some(header) = header {
-        println!(
-            "[{}]: {}({}) \x1b[31m===== [ARP] =====>\x1b[0m {}({}); operation: {:?}",
-            interface_name,
-            ethernet.get_source(),
-            header.get_sender_proto_addr(),
-            ethernet.get_destination(),
-            header.get_target_proto_addr(),
-            header.get_operation()
-        );
+        // When this device is on the receiving end
+        if direction::is_destination(IpAddr::V4(header.get_sender_proto_addr()), ips) {
+            println!(
+                "[{}]: {}({}) \x1b[31m<==== [ARP] ======\x1b[0m {}({}); operation: {:?}",
+                interface_name,
+                ethernet.get_destination(),
+                header.get_target_proto_addr(),
+                ethernet.get_source(),
+                header.get_sender_proto_addr(),
+                header.get_operation()
+            );
+        } else {
+            println!(
+                "[{}]: {}({}) \x1b[31m===== [ARP] =====>\x1b[0m {}({}); operation: {:?}",
+                interface_name,
+                ethernet.get_source(),
+                header.get_sender_proto_addr(),
+                ethernet.get_destination(),
+                header.get_target_proto_addr(),
+                header.get_operation()
+            );
+        }
     } else {
         println!("[{}]: Malformed ARP Packet", interface_name);
     }
 }
 
-pub fn handle_ethernet_frame(interface: &NetworkInterface, ethernet: &EthernetPacket, noudp: bool) {
+pub fn handle_ethernet_frame(
+    interface: &NetworkInterface,
+    ethernet: &EthernetPacket,
+    ips: Vec<IpAddr>,
+    noudp: bool,
+) {
     let interface_name = &interface.name[..];
     match ethernet.get_ethertype() {
-        EtherTypes::Ipv4 => handle_ipv4_packet(interface_name, ethernet, noudp),
-        EtherTypes::Ipv6 => handle_ipv6_packet(interface_name, ethernet, noudp),
-        EtherTypes::Arp => handle_arp_packet(interface_name, ethernet),
+        EtherTypes::Ipv4 => handle_ipv4_packet(interface_name, ethernet, ips, noudp),
+        EtherTypes::Ipv6 => handle_ipv6_packet(interface_name, ethernet, ips, noudp),
+        EtherTypes::Arp => handle_arp_packet(interface_name, ethernet, ips),
         _ => println!(
             "[{}]: {} ===== [Unknown] =====> {}; ethertype: {:?} length: {}",
             interface_name,

@@ -90,6 +90,7 @@ fn main() {
                             handler::handle_ethernet_frame(
                                 &interface,
                                 &fake_ethernet_frame.to_immutable(),
+                                ips.clone(),
                                 cli.noudp,
                             );
                             continue;
@@ -101,6 +102,7 @@ fn main() {
                             handler::handle_ethernet_frame(
                                 &interface,
                                 &fake_ethernet_frame.to_immutable(),
+                                ips.clone(),
                                 cli.noudp,
                             );
                             continue;
@@ -110,6 +112,7 @@ fn main() {
                 handler::handle_ethernet_frame(
                     &interface,
                     &EthernetPacket::new(packet).unwrap(),
+                    ips.clone(),
                     cli.noudp,
                 );
             }
