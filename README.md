@@ -3,6 +3,8 @@
 [![License](https://img.shields.io/github/license/rmuraix/packet-flow)](./LICENSE)  
 Simple packet capture
 
+![screen shot](./static/packet-flow_screenShot.png)
+
 ## Usage
 
 ```shell
