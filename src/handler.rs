@@ -101,7 +101,7 @@ pub fn handle_arp_packet(interface_name: &str, ethernet: &EthernetPacket, ips: V
     let header = ArpPacket::new(ethernet.payload());
     if let Some(header) = header {
         // When this device is on the receiving end
-        if direction::is_destination(IpAddr::V4(header.get_sender_proto_addr()), ips) {
+        if direction::is_destination(IpAddr::V4(header.get_target_proto_addr()), ips) {
             println!(
                 "[{}]: {}({}) \x1b[31m<==== [ARP] ======\x1b[0m {}({}); operation: {:?}",
                 interface_name,
