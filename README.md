@@ -1,6 +1,7 @@
 # Packet Flow
 
-[![License](https://img.shields.io/github/license/rmuraix/packet-flow)](./LICENSE)  
+[![License](https://img.shields.io/github/license/rmuraix/packet-flow)](./LICENSE)
+[![Build](https://github.com/rmuraix/packet-flow/actions/workflows/build.yml/badge.svg)](https://github.com/rmuraix/packet-flow/actions/workflows/build.yml)  
 Simple packet capture
 
 ![screen shot](./static/packet-flow_screenShot.png)
