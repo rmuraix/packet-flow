@@ -36,7 +36,7 @@ jobs:
         run: |
           cargo install --locked cargo-about
           cargo about generate about.hbs > license.html
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: artifact-${{ matrix.os }}
           path: |
