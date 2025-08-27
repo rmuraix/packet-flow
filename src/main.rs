@@ -10,6 +10,9 @@ struct Cli {
     /// Do not display UDP
     #[arg(long)]
     noudp: bool,
+    /// Disable ANSI colors in output (or set NO_COLOR)
+    #[arg(long = "no-color")]
+    no_color: bool,
 }
 
 fn main() -> ExitCode {
@@ -17,6 +20,7 @@ fn main() -> ExitCode {
     let config = packet_flow::Config {
         interface: cli.interface,
         noudp: cli.noudp,
+        no_color: cli.no_color,
     };
     if let Err(err) = packet_flow::run(config) {
         eprintln!("packet-flow error: {:#}", err);

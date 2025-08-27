@@ -1,4 +1,19 @@
 use crate::model::{Direction, IcmpKind, NetEvent, Transport};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static COLOR_ENABLED: AtomicBool = AtomicBool::new(true);
+
+pub fn set_color_enabled(enabled: bool) {
+    COLOR_ENABLED.store(enabled, Ordering::Relaxed);
+}
+
+fn col(code: &'static str) -> &'static str {
+    if COLOR_ENABLED.load(Ordering::Relaxed) {
+        code
+    } else {
+        ""
+    }
+}
 
 pub fn print_event(e: &NetEvent) {
     match &e.transport {
@@ -11,12 +26,12 @@ pub fn print_event(e: &NetEvent) {
             let label: &'static str = if *is_dns { "UDP/DNS" } else { "UDP" };
             match e.direction {
                 Direction::Inbound => println!(
-                    "[{}]: {}:{} \x1b[33m<===== [{}] =====\x1b[0m {}:{}; length: {}",
-                    e.interface, e.destination, dst_port, label, e.source, src_port, length
+                    "[{}]: {}:{} {}<===== [{}] ====={} {}:{}; length: {}",
+                    e.interface, e.destination, dst_port, col("\x1b[33m"), label, col("\x1b[0m"), e.source, src_port, length
                 ),
                 Direction::Outbound => println!(
-                    "[{}]: {}:{} \x1b[33m====== [{}] =====>\x1b[0m {}:{}; length: {}",
-                    e.interface, e.source, src_port, label, e.destination, dst_port, length
+                    "[{}]: {}:{} {}====== [{}] =====>{} {}:{}; length: {}",
+                    e.interface, e.source, src_port, col("\x1b[33m"), label, col("\x1b[0m"), e.destination, dst_port, length
                 ),
             }
         }
@@ -26,54 +41,54 @@ pub fn print_event(e: &NetEvent) {
             length,
         } => match e.direction {
             Direction::Inbound => println!(
-                "[{}]: {}:{} \x1b[34m<==== [TCP] =====\x1b[0m {}:{}; length: {}",
-                e.interface, e.destination, dst_port, e.source, src_port, length
+                "[{}]: {}:{} {}<==== [TCP] ====={} {}:{}; length: {}",
+                e.interface, e.destination, dst_port, col("\x1b[34m"), col("\x1b[0m"), e.source, src_port, length
             ),
             Direction::Outbound => println!(
-                "[{}]: {}:{} \x1b[34m===== [TCP] =====>\x1b[0m {}:{}; length: {}",
-                e.interface, e.source, src_port, e.destination, dst_port, length
+                "[{}]: {}:{} {}===== [TCP] =====>{} {}:{}; length: {}",
+                e.interface, e.source, src_port, col("\x1b[34m"), col("\x1b[0m"), e.destination, dst_port, length
             ),
         },
         Transport::Icmp(kind) => match kind {
             IcmpKind::EchoReply { seq, id } => match e.direction {
                 Direction::Inbound => println!(
-                    "[{}]: {} \x1b[35m<==== [ICMP echo reply] =====\x1b[0m {} (seq={:?}, id={:?})",
-                    e.interface, e.destination, e.source, seq, id
+                    "[{}]: {} {}<==== [ICMP echo reply] ====={} {} (seq={:?}, id={:?})",
+                    e.interface, e.destination, col("\x1b[35m"), col("\x1b[0m"), e.source, seq, id
                 ),
                 Direction::Outbound => println!(
-                    "[{}]: {} \x1b[35m===== [ICMP echo reply] =====>\x1b[0m {} (seq={:?}, id={:?})",
-                    e.interface, e.source, e.destination, seq, id
+                    "[{}]: {} {}===== [ICMP echo reply] =====>{} {} (seq={:?}, id={:?})",
+                    e.interface, e.source, col("\x1b[35m"), col("\x1b[0m"), e.destination, seq, id
                 ),
             },
             IcmpKind::EchoRequest { seq, id } => match e.direction {
                 Direction::Inbound => println!(
-                    "[{}]: {} \x1b[35m<==== [ICMP echo] =====\x1b[0m {} (seq={:?}, id={:?})",
-                    e.interface, e.destination, e.source, seq, id
+                    "[{}]: {} {}<==== [ICMP echo] ====={} {} (seq={:?}, id={:?})",
+                    e.interface, e.destination, col("\x1b[35m"), col("\x1b[0m"), e.source, seq, id
                 ),
                 Direction::Outbound => println!(
-                    "[{}]: {} \x1b[35m===== [ICMP echo] =====>\x1b[0m {} (seq={:?}, id={:?})",
-                    e.interface, e.source, e.destination, seq, id
+                    "[{}]: {} {}===== [ICMP echo] =====>{} {} (seq={:?}, id={:?})",
+                    e.interface, e.source, col("\x1b[35m"), col("\x1b[0m"), e.destination, seq, id
                 ),
             },
             IcmpKind::Other(t) => match e.direction {
                 Direction::Inbound => println!(
-                    "[{}]: {} \x1b[35m<==== [ICMP] =====\x1b[0m {} (type={:?})",
-                    e.interface, e.destination, e.source, t
+                    "[{}]: {} {}<==== [ICMP] ====={} {} (type={:?})",
+                    e.interface, e.destination, col("\x1b[35m"), col("\x1b[0m"), e.source, t
                 ),
                 Direction::Outbound => println!(
-                    "[{}]: {} \x1b[35m===== [ICMP] =====>\x1b[0m {} (type={:?})",
-                    e.interface, e.source, e.destination, t
+                    "[{}]: {} {}===== [ICMP] =====>{} {} (type={:?})",
+                    e.interface, e.source, col("\x1b[35m"), col("\x1b[0m"), e.destination, t
                 ),
             },
         },
         Transport::Icmpv6 { type_u8 } => match e.direction {
             Direction::Inbound => println!(
-                "[{}]: {} \x1b[95m<==== [ICMPv6] =====\x1b[0m {} (type={:?})",
-                e.interface, e.destination, e.source, type_u8
+                "[{}]: {} {}<==== [ICMPv6] ====={} {} (type={:?})",
+                e.interface, e.destination, col("\x1b[95m"), col("\x1b[0m"), e.source, type_u8
             ),
             Direction::Outbound => println!(
-                "[{}]: {} \x1b[95m===== [ICMPv6] =====>\x1b[0m {} (type={:?})",
-                e.interface, e.source, e.destination, type_u8
+                "[{}]: {} {}===== [ICMPv6] =====>{} {} (type={:?})",
+                e.interface, e.source, col("\x1b[95m"), col("\x1b[0m"), e.destination, type_u8
             ),
         },
         Transport::Arp {
@@ -84,12 +99,12 @@ pub fn print_event(e: &NetEvent) {
             target_ip,
         } => match e.direction {
             Direction::Inbound => println!(
-                "[{}]: {}({}) \x1b[31m<==== [ARP] ======\x1b[0m {}({}); operation: {:?}",
-                e.interface, target_mac, target_ip, sender_mac, sender_ip, operation
+                "[{}]: {}({}) {}<==== [ARP] ======{} {}({}); operation: {:?}",
+                e.interface, target_mac, target_ip, col("\x1b[31m"), col("\x1b[0m"), sender_mac, sender_ip, operation
             ),
             Direction::Outbound => println!(
-                "[{}]: {}({}) \x1b[31m===== [ARP] =====>\x1b[0m {}({}); operation: {:?}",
-                e.interface, sender_mac, sender_ip, target_mac, target_ip, operation
+                "[{}]: {}({}) {}===== [ARP] =====>{} {}({}); operation: {:?}",
+                e.interface, sender_mac, sender_ip, col("\x1b[31m"), col("\x1b[0m"), target_mac, target_ip, operation
             ),
         },
     }

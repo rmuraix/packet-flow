@@ -7,11 +7,16 @@ pub mod render;
 pub struct Config {
     pub interface: String,
     pub noudp: bool,
+    pub no_color: bool,
 }
 
 /// Main runtime loop. Returns error instead of panicking.
 pub fn run(config: Config) -> anyhow::Result<()> {
     let mut cap: capture::Capture = capture::Capture::open(&config.interface)?;
+
+    // Configure rendering
+    let disable_color = config.no_color || std::env::var_os("NO_COLOR").is_some();
+    crate::render::set_color_enabled(!disable_color);
 
     let ips_vec: Vec<std::net::IpAddr> = cap.host_ips();
     println!("IP address of this device:{:?}", ips_vec);
