@@ -13,6 +13,8 @@ use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::Packet;
 
 use std::net::IpAddr;
+use crate::model::{Direction as FlowDir, NetEvent, Transport};
+use crate::render;
 
 pub fn handle_transport_protocol(
     interface_name: &str,
@@ -100,28 +102,25 @@ pub fn handle_ipv6_packet(
 pub fn handle_arp_packet(interface_name: &str, ethernet: &EthernetPacket, ips: Vec<IpAddr>) {
     let header = ArpPacket::new(ethernet.payload());
     if let Some(header) = header {
-        // When this device is on the receiving end
-        if direction::is_destination(IpAddr::V4(header.get_target_proto_addr()), ips) {
-            println!(
-                "[{}]: {}({}) \x1b[31m<==== [ARP] ======\x1b[0m {}({}); operation: {:?}",
-                interface_name,
-                ethernet.get_destination(),
-                header.get_target_proto_addr(),
-                ethernet.get_source(),
-                header.get_sender_proto_addr(),
-                header.get_operation()
-            );
+        let dir = if direction::is_destination(IpAddr::V4(header.get_target_proto_addr()), ips) {
+            FlowDir::Inbound
         } else {
-            println!(
-                "[{}]: {}({}) \x1b[31m===== [ARP] =====>\x1b[0m {}({}); operation: {:?}",
-                interface_name,
-                ethernet.get_source(),
-                header.get_sender_proto_addr(),
-                ethernet.get_destination(),
-                header.get_target_proto_addr(),
-                header.get_operation()
-            );
-        }
+            FlowDir::Outbound
+        };
+        let ev = NetEvent::new(
+            interface_name,
+            dir,
+            IpAddr::V4(header.get_sender_proto_addr()),
+            IpAddr::V4(header.get_target_proto_addr()),
+            Transport::Arp {
+                operation: header.get_operation().0,
+                sender_mac: ethernet.get_source(),
+                sender_ip: header.get_sender_proto_addr(),
+                target_mac: ethernet.get_destination(),
+                target_ip: header.get_target_proto_addr(),
+            },
+        );
+        render::print_event(&ev);
     } else {
         println!("[{}]: Malformed ARP Packet", interface_name);
     }

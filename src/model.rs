@@ -1,4 +1,6 @@
 use std::net::IpAddr;
+use std::net::Ipv4Addr;
+use pnet::util::MacAddr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
@@ -28,6 +30,13 @@ pub enum Transport {
     },
     Icmp(IcmpKind),
     Icmpv6 { type_u8: u8 },
+    Arp {
+        operation: u16,
+        sender_mac: MacAddr,
+        sender_ip: Ipv4Addr,
+        target_mac: MacAddr,
+        target_ip: Ipv4Addr,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -56,4 +65,3 @@ impl NetEvent {
         }
     }
 }
-

@@ -1,4 +1,5 @@
 use crate::model::{Direction, IcmpKind, NetEvent, Transport};
+use pnet::util::MacAddr;
 
 pub fn print_event(e: &NetEvent) {
     match &e.transport {
@@ -74,6 +75,22 @@ pub fn print_event(e: &NetEvent) {
             Direction::Outbound => println!(
                 "[{}]: {} \x1b[95m===== [ICMPv6] =====>\x1b[0m {} (type={:?})",
                 e.interface, e.source, e.destination, type_u8
+            ),
+        },
+        Transport::Arp {
+            operation,
+            sender_mac,
+            sender_ip,
+            target_mac,
+            target_ip,
+        } => match e.direction {
+            Direction::Inbound => println!(
+                "[{}]: {}({}) \x1b[31m<==== [ARP] ======\x1b[0m {}({}); operation: {:?}",
+                e.interface, target_mac, target_ip, sender_mac, sender_ip, operation
+            ),
+            Direction::Outbound => println!(
+                "[{}]: {}({}) \x1b[31m===== [ARP] =====>\x1b[0m {}({}); operation: {:?}",
+                e.interface, sender_mac, sender_ip, target_mac, target_ip, operation
             ),
         },
     }
