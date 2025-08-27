@@ -1,6 +1,6 @@
+use pnet::util::MacAddr;
 use std::net::IpAddr;
 use std::net::Ipv4Addr;
-use pnet::util::MacAddr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
@@ -29,7 +29,9 @@ pub enum Transport {
         length: usize,
     },
     Icmp(IcmpKind),
-    Icmpv6 { type_u8: u8 },
+    Icmpv6 {
+        type_u8: u8,
+    },
     Arp {
         operation: u16,
         sender_mac: MacAddr,

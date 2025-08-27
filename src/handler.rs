@@ -12,12 +12,14 @@ use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::Packet;
 
+use crate::handler::packets::{
+    build_icmp_event, build_icmpv6_event, build_tcp_event, build_udp_event,
+};
+use crate::model::{Direction as FlowDir, NetEvent, Transport};
+use crate::render;
 use std::collections::HashSet;
 use std::net::IpAddr;
 use std::sync::Arc;
-use crate::model::{Direction as FlowDir, NetEvent, Transport};
-use crate::render;
-use crate::handler::packets::{build_udp_event, build_tcp_event, build_icmp_event, build_icmpv6_event};
 
 pub fn handle_transport_protocol(
     interface_name: &str,
@@ -71,7 +73,11 @@ pub(crate) fn build_ipv4_event(
     let payload = header.payload();
     match proto {
         IpNextHeaderProtocols::Udp => {
-            if noudp { None } else { build_udp_event(interface_name, src, dst, payload, ips) }
+            if noudp {
+                None
+            } else {
+                build_udp_event(interface_name, src, dst, payload, ips)
+            }
         }
         IpNextHeaderProtocols::Tcp => build_tcp_event(interface_name, src, dst, payload, ips),
         IpNextHeaderProtocols::Icmp => build_icmp_event(interface_name, src, dst, payload, ips),
@@ -92,7 +98,11 @@ pub(crate) fn build_ipv6_event(
     let payload = header.payload();
     match next {
         IpNextHeaderProtocols::Udp => {
-            if noudp { None } else { build_udp_event(interface_name, src, dst, payload, ips) }
+            if noudp {
+                None
+            } else {
+                build_udp_event(interface_name, src, dst, payload, ips)
+            }
         }
         IpNextHeaderProtocols::Tcp => build_tcp_event(interface_name, src, dst, payload, ips),
         IpNextHeaderProtocols::Icmpv6 => build_icmpv6_event(interface_name, src, dst, payload, ips),
@@ -176,14 +186,14 @@ pub fn handle_ethernet_frame(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pnet::packet::arp::{ArpHardwareTypes, ArpOperations, MutableArpPacket};
     use pnet::packet::ethernet::MutableEthernetPacket;
     use pnet::packet::ipv4::MutableIpv4Packet;
     use pnet::packet::ipv6::MutableIpv6Packet;
-    use pnet::packet::udp::MutableUdpPacket;
     use pnet::packet::tcp::MutableTcpPacket;
+    use pnet::packet::udp::MutableUdpPacket;
     use pnet::packet::MutablePacket;
     use pnet::util::MacAddr;
-    use pnet::packet::arp::{MutableArpPacket, ArpHardwareTypes, ArpOperations};
 
     fn ips_set() -> HashSet<IpAddr> {
         let mut set = HashSet::new();
@@ -213,8 +223,8 @@ mod tests {
         {
             let mut eth = MutableEthernetPacket::new(&mut eth_buf[..]).unwrap();
             eth.set_ethertype(EtherTypes::Ipv4);
-            eth.set_source(MacAddr(0,0,0,0,0,1));
-            eth.set_destination(MacAddr(0,0,0,0,0,2));
+            eth.set_source(MacAddr(0, 0, 0, 0, 0, 1));
+            eth.set_destination(MacAddr(0, 0, 0, 0, 0, 2));
             eth.set_payload(&ip_buf);
         }
         let eth = EthernetPacket::new(&eth_buf[..]).unwrap();
@@ -223,7 +233,10 @@ mod tests {
         assert!(ev.is_none());
         // With noudp=false, event exists
         let ev = build_ipv4_event("eth0", &eth, &ips_set(), false).expect("event");
-        match ev.transport { Transport::Udp { is_dns, .. } => assert!(is_dns), _ => panic!("not udp") }
+        match ev.transport {
+            Transport::Udp { is_dns, .. } => assert!(is_dns),
+            _ => panic!("not udp"),
+        }
     }
 
     #[test]
@@ -246,13 +259,16 @@ mod tests {
         {
             let mut eth = MutableEthernetPacket::new(&mut eth_buf[..]).unwrap();
             eth.set_ethertype(EtherTypes::Ipv6);
-            eth.set_source(MacAddr(0,0,0,0,0,1));
-            eth.set_destination(MacAddr(0,0,0,0,0,2));
+            eth.set_source(MacAddr(0, 0, 0, 0, 0, 1));
+            eth.set_destination(MacAddr(0, 0, 0, 0, 0, 2));
             eth.set_payload(&ip6_buf);
         }
         let eth = EthernetPacket::new(&eth_buf[..]).unwrap();
         let ev = build_ipv6_event("eth0", &eth, &ips_set(), false).expect("event");
-        match ev.transport { Transport::Tcp { dst_port, .. } => assert_eq!(dst_port, 443), _ => panic!("not tcp") }
+        match ev.transport {
+            Transport::Tcp { dst_port, .. } => assert_eq!(dst_port, 443),
+            _ => panic!("not tcp"),
+        }
     }
 
     #[test]
@@ -266,26 +282,31 @@ mod tests {
             arp.set_hw_addr_len(6);
             arp.set_proto_addr_len(4);
             arp.set_operation(ArpOperations::Request);
-            arp.set_sender_hw_addr(MacAddr(0,1,2,3,4,5));
-            arp.set_sender_proto_addr(std::net::Ipv4Addr::new(10,0,0,3));
-            arp.set_target_hw_addr(MacAddr(0,0,0,0,0,0));
-            arp.set_target_proto_addr(std::net::Ipv4Addr::new(10,0,0,2));
+            arp.set_sender_hw_addr(MacAddr(0, 1, 2, 3, 4, 5));
+            arp.set_sender_proto_addr(std::net::Ipv4Addr::new(10, 0, 0, 3));
+            arp.set_target_hw_addr(MacAddr(0, 0, 0, 0, 0, 0));
+            arp.set_target_proto_addr(std::net::Ipv4Addr::new(10, 0, 0, 2));
         }
         let mut eth_buf = vec![0u8; 14 + arp_buf.len()];
         {
             let mut eth = MutableEthernetPacket::new(&mut eth_buf[..]).unwrap();
             eth.set_ethertype(EtherTypes::Arp);
-            eth.set_source(MacAddr(0,1,2,3,4,5));
-            eth.set_destination(MacAddr(0,0,0,0,0,0));
+            eth.set_source(MacAddr(0, 1, 2, 3, 4, 5));
+            eth.set_destination(MacAddr(0, 0, 0, 0, 0, 0));
             eth.set_payload(&arp_buf);
         }
         let eth = EthernetPacket::new(&eth_buf[..]).unwrap();
         let ev = build_ethernet_event("eth0", &eth, &ips_set(), false).expect("event");
         match ev.transport {
-            Transport::Arp { operation, sender_ip, target_ip, .. } => {
+            Transport::Arp {
+                operation,
+                sender_ip,
+                target_ip,
+                ..
+            } => {
                 assert_eq!(operation, ArpOperations::Request.0);
-                assert_eq!(sender_ip, std::net::Ipv4Addr::new(10,0,0,3));
-                assert_eq!(target_ip, std::net::Ipv4Addr::new(10,0,0,2));
+                assert_eq!(sender_ip, std::net::Ipv4Addr::new(10, 0, 0, 3));
+                assert_eq!(target_ip, std::net::Ipv4Addr::new(10, 0, 0, 2));
             }
             _ => panic!("not arp"),
         }
