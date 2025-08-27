@@ -112,15 +112,27 @@ pub(crate) fn build_icmp_event(
     let kind = match icmp_packet.get_icmp_type() {
         IcmpTypes::EchoReply => {
             let p = echo_reply::EchoReplyPacket::new(packet).unwrap();
-            IcmpKind::EchoReply { seq: p.get_sequence_number(), id: p.get_identifier() }
+            IcmpKind::EchoReply {
+                seq: p.get_sequence_number(),
+                id: p.get_identifier(),
+            }
         }
         IcmpTypes::EchoRequest => {
             let p = echo_request::EchoRequestPacket::new(packet).unwrap();
-            IcmpKind::EchoRequest { seq: p.get_sequence_number(), id: p.get_identifier() }
+            IcmpKind::EchoRequest {
+                seq: p.get_sequence_number(),
+                id: p.get_identifier(),
+            }
         }
         other => IcmpKind::Other(other.0),
     };
-    Some(NetEvent::new(interface_name, dir, source, destination, Transport::Icmp(kind)))
+    Some(NetEvent::new(
+        interface_name,
+        dir,
+        source,
+        destination,
+        Transport::Icmp(kind),
+    ))
 }
 
 pub fn handle_icmp_packet(
@@ -155,7 +167,9 @@ pub(crate) fn build_icmpv6_event(
         dir,
         source,
         destination,
-        Transport::Icmpv6 { type_u8: icmpv6_packet.get_icmpv6_type().0 },
+        Transport::Icmpv6 {
+            type_u8: icmpv6_packet.get_icmpv6_type().0,
+        },
     ))
 }
 
@@ -207,7 +221,12 @@ mod tests {
         )
         .expect("event");
         match ev.transport {
-            Transport::Udp { is_dns, src_port, dst_port, length } => {
+            Transport::Udp {
+                is_dns,
+                src_port,
+                dst_port,
+                length,
+            } => {
                 assert!(is_dns);
                 assert_eq!(src_port, 53);
                 assert_eq!(dst_port, 53000);
@@ -234,7 +253,11 @@ mod tests {
         )
         .expect("event");
         match ev.transport {
-            Transport::Tcp { src_port, dst_port, length } => {
+            Transport::Tcp {
+                src_port,
+                dst_port,
+                length,
+            } => {
                 assert_eq!(src_port, 55555);
                 assert_eq!(dst_port, 80);
                 assert_eq!(length, 20);

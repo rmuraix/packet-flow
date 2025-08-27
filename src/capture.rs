@@ -1,6 +1,8 @@
 use std::net::IpAddr;
 
-use pnet::datalink::{self, Channel::Ethernet, Config as DlConfig, DataLinkReceiver, NetworkInterface};
+use pnet::datalink::{
+    self, Channel::Ethernet, Config as DlConfig, DataLinkReceiver, NetworkInterface,
+};
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket, MutableEthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::util::MacAddr;
@@ -20,12 +22,20 @@ impl Capture {
             .find(|iface: &NetworkInterface| iface.name == iface_name)
             .ok_or_else(|| anyhow::anyhow!("No such network interface: {}", iface_name))?;
 
-        let mut cfg = DlConfig::default();
-        cfg.read_timeout = Some(Duration::from_millis(200));
+        let cfg = DlConfig {
+            read_timeout: Some(Duration::from_millis(200)),
+            ..Default::default()
+        };
+
         let (_, rx) = match datalink::channel(&interface, cfg) {
             Ok(Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => return Err(anyhow::anyhow!("packet-flow: unhandled channel type")),
-            Err(e) => return Err(anyhow::anyhow!("packet-flow: unable to create channel: {}", e)),
+            Err(e) => {
+                return Err(anyhow::anyhow!(
+                    "packet-flow: unable to create channel: {}",
+                    e
+                ))
+            }
         };
 
         Ok(Self {
@@ -99,7 +109,10 @@ impl Capture {
                 if e.kind() == std::io::ErrorKind::TimedOut {
                     Ok(None)
                 } else {
-                    Err(anyhow::anyhow!("packet-flow: unable to receive packet: {}", e))
+                    Err(anyhow::anyhow!(
+                        "packet-flow: unable to receive packet: {}",
+                        e
+                    ))
                 }
             }
         }
