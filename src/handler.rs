@@ -105,32 +105,50 @@ pub fn handle_arp_packet(
     ethernet: &EthernetPacket,
     ips: Arc<HashSet<IpAddr>>,
 ) {
-    let header = ArpPacket::new(ethernet.payload());
-    if let Some(header) = header {
-        let dir = if direction::is_destination(
-            IpAddr::V4(header.get_target_proto_addr()),
-            &ips,
-        ) {
-            FlowDir::Inbound
-        } else {
-            FlowDir::Outbound
-        };
-        let ev = NetEvent::new(
-            interface_name,
-            dir,
-            IpAddr::V4(header.get_sender_proto_addr()),
-            IpAddr::V4(header.get_target_proto_addr()),
-            Transport::Arp {
-                operation: header.get_operation().0,
-                sender_mac: ethernet.get_source(),
-                sender_ip: header.get_sender_proto_addr(),
-                target_mac: ethernet.get_destination(),
-                target_ip: header.get_target_proto_addr(),
-            },
-        );
+    if let Some(ev) = build_arp_event(interface_name, ethernet, &ips) {
         render::print_event(&ev);
     } else {
         println!("[{}]: Malformed ARP Packet", interface_name);
+    }
+}
+
+pub(crate) fn build_arp_event(
+    interface_name: &str,
+    ethernet: &EthernetPacket,
+    ips: &HashSet<IpAddr>,
+) -> Option<NetEvent> {
+    let header = ArpPacket::new(ethernet.payload())?;
+    let dir = if direction::is_destination(IpAddr::V4(header.get_target_proto_addr()), ips) {
+        FlowDir::Inbound
+    } else {
+        FlowDir::Outbound
+    };
+    Some(NetEvent::new(
+        interface_name,
+        dir,
+        IpAddr::V4(header.get_sender_proto_addr()),
+        IpAddr::V4(header.get_target_proto_addr()),
+        Transport::Arp {
+            operation: header.get_operation().0,
+            sender_mac: ethernet.get_source(),
+            sender_ip: header.get_sender_proto_addr(),
+            target_mac: ethernet.get_destination(),
+            target_ip: header.get_target_proto_addr(),
+        },
+    ))
+}
+
+pub(crate) fn build_ethernet_event(
+    interface_name: &str,
+    ethernet: &EthernetPacket,
+    ips: &HashSet<IpAddr>,
+    noudp: bool,
+) -> Option<NetEvent> {
+    match ethernet.get_ethertype() {
+        EtherTypes::Ipv4 => build_ipv4_event(interface_name, ethernet, ips, noudp),
+        EtherTypes::Ipv6 => build_ipv6_event(interface_name, ethernet, ips, noudp),
+        EtherTypes::Arp => build_arp_event(interface_name, ethernet, ips),
+        _ => None,
     }
 }
 
@@ -141,28 +159,17 @@ pub fn handle_ethernet_frame(
     noudp: bool,
 ) {
     let interface_name = &interface.name[..];
-    match ethernet.get_ethertype() {
-        EtherTypes::Ipv4 => {
-            if let Some(ev) = build_ipv4_event(interface_name, ethernet, &ips, noudp) {
-                render::print_event(&ev);
-            } else {
-                // Unknown or filtered; do nothing
-            }
-        }
-        EtherTypes::Ipv6 => {
-            if let Some(ev) = build_ipv6_event(interface_name, ethernet, &ips, noudp) {
-                render::print_event(&ev);
-            }
-        }
-        EtherTypes::Arp => handle_arp_packet(interface_name, ethernet, ips),
-        _ => println!(
+    if let Some(ev) = build_ethernet_event(interface_name, ethernet, &ips, noudp) {
+        render::print_event(&ev);
+    } else {
+        println!(
             "[{}]: {} ===== [Unknown] =====> {}; ethertype: {:?} length: {}",
             interface_name,
             ethernet.get_source(),
             ethernet.get_destination(),
             ethernet.get_ethertype(),
             ethernet.packet().len()
-        ),
+        );
     }
 }
 
@@ -176,6 +183,7 @@ mod tests {
     use pnet::packet::tcp::MutableTcpPacket;
     use pnet::packet::MutablePacket;
     use pnet::util::MacAddr;
+    use pnet::packet::arp::{MutableArpPacket, ArpHardwareTypes, ArpOperations};
 
     fn ips_set() -> HashSet<IpAddr> {
         let mut set = HashSet::new();
@@ -245,5 +253,42 @@ mod tests {
         let eth = EthernetPacket::new(&eth_buf[..]).unwrap();
         let ev = build_ipv6_event("eth0", &eth, &ips_set(), false).expect("event");
         match ev.transport { Transport::Tcp { dst_port, .. } => assert_eq!(dst_port, 443), _ => panic!("not tcp") }
+    }
+
+    #[test]
+    fn test_build_ethernet_arp_inbound() {
+        // Build ARP request targeting our host IP
+        let mut arp_buf = vec![0u8; 28];
+        {
+            let mut arp = MutableArpPacket::new(&mut arp_buf[..]).unwrap();
+            arp.set_hardware_type(ArpHardwareTypes::Ethernet);
+            arp.set_protocol_type(EtherTypes::Ipv4);
+            arp.set_hw_addr_len(6);
+            arp.set_proto_addr_len(4);
+            arp.set_operation(ArpOperations::Request);
+            arp.set_sender_hw_addr(MacAddr(0,1,2,3,4,5));
+            arp.set_sender_proto_addr(std::net::Ipv4Addr::new(10,0,0,3));
+            arp.set_target_hw_addr(MacAddr(0,0,0,0,0,0));
+            arp.set_target_proto_addr(std::net::Ipv4Addr::new(10,0,0,2));
+        }
+        let mut eth_buf = vec![0u8; 14 + arp_buf.len()];
+        {
+            let mut eth = MutableEthernetPacket::new(&mut eth_buf[..]).unwrap();
+            eth.set_ethertype(EtherTypes::Arp);
+            eth.set_source(MacAddr(0,1,2,3,4,5));
+            eth.set_destination(MacAddr(0,0,0,0,0,0));
+            eth.set_payload(&arp_buf);
+        }
+        let eth = EthernetPacket::new(&eth_buf[..]).unwrap();
+        let ev = build_ethernet_event("eth0", &eth, &ips_set(), false).expect("event");
+        match ev.transport {
+            Transport::Arp { operation, sender_ip, target_ip, .. } => {
+                assert_eq!(operation, ArpOperations::Request.0);
+                assert_eq!(sender_ip, std::net::Ipv4Addr::new(10,0,0,3));
+                assert_eq!(target_ip, std::net::Ipv4Addr::new(10,0,0,2));
+            }
+            _ => panic!("not arp"),
+        }
+        assert!(matches!(ev.direction, FlowDir::Inbound));
     }
 }
