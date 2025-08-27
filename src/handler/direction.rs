@@ -17,10 +17,10 @@ mod tests {
         let mut ips: HashSet<IpAddr> = HashSet::new();
         ips.insert(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 1)));
 
-        assert_eq!(is_destination(ip, &ips), false);
+        assert!(!is_destination(ip, &ips));
 
         ips.insert(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
 
-        assert_eq!(is_destination(ip, &ips), true);
+        assert!(is_destination(ip, &ips));
     }
 }
