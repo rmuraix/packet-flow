@@ -1,9 +1,10 @@
 use std::net::IpAddr;
 
-use pnet::datalink::{self, Channel::Ethernet, DataLinkReceiver, NetworkInterface};
+use pnet::datalink::{self, Channel::Ethernet, Config as DlConfig, DataLinkReceiver, NetworkInterface};
 use pnet::packet::ethernet::{EtherTypes, EthernetPacket, MutableEthernetPacket};
 use pnet::packet::ipv4::Ipv4Packet;
 use pnet::util::MacAddr;
+use std::time::Duration;
 
 pub struct Capture {
     interface: NetworkInterface,
@@ -19,7 +20,9 @@ impl Capture {
             .find(|iface: &NetworkInterface| iface.name == iface_name)
             .ok_or_else(|| anyhow::anyhow!("No such network interface: {}", iface_name))?;
 
-        let (_, rx) = match datalink::channel(&interface, Default::default()) {
+        let mut cfg = DlConfig::default();
+        cfg.read_timeout = Some(Duration::from_millis(200));
+        let (_, rx) = match datalink::channel(&interface, cfg) {
             Ok(Ethernet(tx, rx)) => (tx, rx),
             Ok(_) => return Err(anyhow::anyhow!("packet-flow: unhandled channel type")),
             Err(e) => return Err(anyhow::anyhow!("packet-flow: unable to create channel: {}", e)),
@@ -50,7 +53,7 @@ impl Capture {
         ips
     }
 
-    pub fn next_ethernet<'a>(&'a mut self) -> anyhow::Result<EthernetPacket<'a>> {
+    pub fn next_ethernet<'a>(&'a mut self) -> anyhow::Result<Option<EthernetPacket<'a>>> {
         match self.rx.next() {
             Ok(packet) => {
                 let payload_offset;
@@ -78,7 +81,7 @@ impl Capture {
                             fake.set_ethertype(EtherTypes::Ipv4);
                             fake.set_payload(&packet[payload_offset..]);
                             let im = EthernetPacket::new(&self.buf[..]).unwrap();
-                            return Ok(im);
+                            return Ok(Some(im));
                         } else if version == 6 {
                             let mut fake = MutableEthernetPacket::new(&mut self.buf[..]).unwrap();
                             fake.set_destination(MacAddr(0, 0, 0, 0, 0, 0));
@@ -86,13 +89,19 @@ impl Capture {
                             fake.set_ethertype(EtherTypes::Ipv6);
                             fake.set_payload(&packet[payload_offset..]);
                             let im = EthernetPacket::new(&self.buf[..]).unwrap();
-                            return Ok(im);
+                            return Ok(Some(im));
                         }
                     }
                 }
-                Ok(EthernetPacket::new(packet).unwrap())
+                Ok(Some(EthernetPacket::new(packet).unwrap()))
             }
-            Err(e) => Err(anyhow::anyhow!("packet-flow: unable to receive packet: {}", e)),
+            Err(e) => {
+                if e.kind() == std::io::ErrorKind::TimedOut {
+                    Ok(None)
+                } else {
+                    Err(anyhow::anyhow!("packet-flow: unable to receive packet: {}", e))
+                }
+            }
         }
     }
 }

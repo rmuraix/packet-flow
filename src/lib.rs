@@ -24,8 +24,22 @@ pub fn run(config: Config) -> anyhow::Result<()> {
     let ips = std::sync::Arc::new(ips_set);
     let iface_owned: pnet::datalink::NetworkInterface = cap.interface().clone();
 
-    loop {
-        let frame = cap.next_ethernet()?;
-        crate::handler::handle_ethernet_frame(&iface_owned, &frame, std::sync::Arc::clone(&ips), config.noudp);
+    // Install Ctrl-C handler for graceful shutdown
+    let terminate = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let t2 = std::sync::Arc::clone(&terminate);
+    ctrlc::set_handler(move || {
+        t2.store(true, std::sync::atomic::Ordering::SeqCst);
+    })?;
+
+    while !terminate.load(std::sync::atomic::Ordering::Relaxed) {
+        if let Some(frame) = cap.next_ethernet()? {
+            crate::handler::handle_ethernet_frame(
+                &iface_owned,
+                &frame,
+                std::sync::Arc::clone(&ips),
+                config.noudp,
+            );
+        }
     }
+    Ok(())
 }
