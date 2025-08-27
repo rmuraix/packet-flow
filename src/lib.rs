@@ -1,5 +1,7 @@
 pub mod handler;
 pub mod capture;
+pub mod model;
+pub mod render;
 
 /// Runtime configuration passed from the CLI layer.
 pub struct Config {
