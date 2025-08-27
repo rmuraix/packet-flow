@@ -16,6 +16,7 @@ sudo path/to/packet-flow -i <NETWORK INTERFACE>
 Options:
   -i, --interface <NETWORK INTERFACE>  Name of the network interface
       --noudp                          Do not display UDP
+      --no-color                       Disable ANSI colors in output (or set NO_COLOR)
   -h, --help                           Print help
   -V, --version                        Print version
 ```
