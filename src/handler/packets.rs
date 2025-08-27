@@ -1,4 +1,6 @@
+use std::collections::HashSet;
 use std::net::IpAddr;
+use std::sync::Arc;
 
 use pnet::packet::{
     icmp::{echo_reply, echo_request, IcmpPacket, IcmpTypes},
@@ -16,14 +18,14 @@ pub fn handle_udp_packet(
     source: IpAddr,
     destination: IpAddr,
     packet: &[u8],
-    ips: Vec<IpAddr>,
+    ips: Arc<HashSet<IpAddr>>,
 ) {
     let udp = UdpPacket::new(packet);
 
     if let Some(udp) = udp {
         let udp_source: u16 = udp.get_source();
         let udp_destination = udp.get_destination();
-        let dir: FlowDir = if direction::is_destination(destination, ips) {
+        let dir: FlowDir = if direction::is_destination(destination, &ips) {
             FlowDir::Inbound
         } else {
             FlowDir::Outbound
@@ -50,11 +52,11 @@ pub fn handle_tcp_packet(
     source: IpAddr,
     destination: IpAddr,
     packet: &[u8],
-    ips: Vec<IpAddr>,
+    ips: Arc<HashSet<IpAddr>>,
 ) {
     let tcp: Option<TcpPacket<'_>> = TcpPacket::new(packet);
     if let Some(tcp) = tcp {
-        let dir = if direction::is_destination(destination, ips) {
+        let dir = if direction::is_destination(destination, &ips) {
             FlowDir::Inbound
         } else {
             FlowDir::Outbound
@@ -80,11 +82,11 @@ pub fn handle_icmp_packet(
     source: IpAddr,
     destination: IpAddr,
     packet: &[u8],
-    ips: Vec<IpAddr>,
+    ips: Arc<HashSet<IpAddr>>,
 ) {
     let icmp_packet: Option<IcmpPacket<'_>> = IcmpPacket::new(packet);
     if let Some(icmp_packet) = icmp_packet {
-        let dir: FlowDir = if direction::is_destination(destination, ips) {
+        let dir: FlowDir = if direction::is_destination(destination, &ips) {
             FlowDir::Inbound
         } else {
             FlowDir::Outbound
@@ -117,11 +119,11 @@ pub fn handle_icmpv6_packet(
     source: IpAddr,
     destination: IpAddr,
     packet: &[u8],
-    ips: Vec<IpAddr>,
+    ips: Arc<HashSet<IpAddr>>,
 ) {
     let icmpv6_packet: Option<Icmpv6Packet<'_>> = Icmpv6Packet::new(packet);
     if let Some(icmpv6_packet) = icmpv6_packet {
-        let dir = if direction::is_destination(destination, ips) {
+        let dir = if direction::is_destination(destination, &ips) {
             FlowDir::Inbound
         } else {
             FlowDir::Outbound

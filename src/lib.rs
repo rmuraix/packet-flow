@@ -13,17 +13,14 @@ pub struct Config {
 pub fn run(config: Config) -> anyhow::Result<()> {
     let mut cap: capture::Capture = capture::Capture::open(&config.interface)?;
 
-    let ips: Vec<std::net::IpAddr> = cap.host_ips();
-    println!("IP address of this device:{:?}", ips);
+    let ips_vec: Vec<std::net::IpAddr> = cap.host_ips();
+    println!("IP address of this device:{:?}", ips_vec);
+    let ips_set: std::collections::HashSet<std::net::IpAddr> = ips_vec.into_iter().collect();
+    let ips = std::sync::Arc::new(ips_set);
     let iface_owned: pnet::datalink::NetworkInterface = cap.interface().clone();
 
     loop {
         let frame = cap.next_ethernet()?;
-        crate::handler::handle_ethernet_frame(
-            &iface_owned,
-            &frame,
-            ips.clone(),
-            config.noudp,
-        );
+        crate::handler::handle_ethernet_frame(&iface_owned, &frame, std::sync::Arc::clone(&ips), config.noudp);
     }
 }

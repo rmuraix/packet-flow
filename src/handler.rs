@@ -12,7 +12,9 @@ use pnet::packet::ipv4::Ipv4Packet;
 use pnet::packet::ipv6::Ipv6Packet;
 use pnet::packet::Packet;
 
+use std::collections::HashSet;
 use std::net::IpAddr;
+use std::sync::Arc;
 use crate::model::{Direction as FlowDir, NetEvent, Transport};
 use crate::render;
 
@@ -22,7 +24,7 @@ pub fn handle_transport_protocol(
     destination: IpAddr,
     protocol: IpNextHeaderProtocol,
     packet: &[u8],
-    ips: Vec<IpAddr>,
+    ips: Arc<HashSet<IpAddr>>,
     noudp: bool,
 ) {
     match protocol {
@@ -58,7 +60,7 @@ pub fn handle_transport_protocol(
 pub fn handle_ipv4_packet(
     interface_name: &str,
     ethernet: &EthernetPacket,
-    ips: Vec<IpAddr>,
+    ips: Arc<HashSet<IpAddr>>,
     noudp: bool,
 ) {
     let header = Ipv4Packet::new(ethernet.payload());
@@ -80,7 +82,7 @@ pub fn handle_ipv4_packet(
 pub fn handle_ipv6_packet(
     interface_name: &str,
     ethernet: &EthernetPacket,
-    ips: Vec<IpAddr>,
+    ips: Arc<HashSet<IpAddr>>,
     noudp: bool,
 ) {
     let header = Ipv6Packet::new(ethernet.payload());
@@ -99,10 +101,17 @@ pub fn handle_ipv6_packet(
     }
 }
 
-pub fn handle_arp_packet(interface_name: &str, ethernet: &EthernetPacket, ips: Vec<IpAddr>) {
+pub fn handle_arp_packet(
+    interface_name: &str,
+    ethernet: &EthernetPacket,
+    ips: Arc<HashSet<IpAddr>>,
+) {
     let header = ArpPacket::new(ethernet.payload());
     if let Some(header) = header {
-        let dir = if direction::is_destination(IpAddr::V4(header.get_target_proto_addr()), ips) {
+        let dir = if direction::is_destination(
+            IpAddr::V4(header.get_target_proto_addr()),
+            &ips,
+        ) {
             FlowDir::Inbound
         } else {
             FlowDir::Outbound
@@ -129,7 +138,7 @@ pub fn handle_arp_packet(interface_name: &str, ethernet: &EthernetPacket, ips: V
 pub fn handle_ethernet_frame(
     interface: &NetworkInterface,
     ethernet: &EthernetPacket,
-    ips: Vec<IpAddr>,
+    ips: Arc<HashSet<IpAddr>>,
     noudp: bool,
 ) {
     let interface_name = &interface.name[..];
