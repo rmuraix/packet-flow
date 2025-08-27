@@ -23,6 +23,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: "app"
+      - name: Install rustfmt and clippy
+        run: |
+          rustup component add rustfmt clippy
+      - name: Format check
+        run: cargo fmt --all -- --check
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all-targets -- -D warnings
       - name: Build
         if: ${{ startsWith(github.ref, 'refs/tags/') == false }}
         run: cargo build
