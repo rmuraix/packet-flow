@@ -1,5 +1,4 @@
 use crate::model::{Direction, IcmpKind, NetEvent, Transport};
-use pnet::util::MacAddr;
 
 pub fn print_event(e: &NetEvent) {
     match &e.transport {
