@@ -9,24 +9,21 @@ pub struct Config {
     pub noudp: bool,
 }
 
-/// Main runtime loop. Never returns under normal operation.
-pub fn run(config: Config) -> ! {
-    let mut cap: capture::Capture = capture::Capture::open(&config.interface)
-        .unwrap_or_else(|e| panic!("{}", e));
+/// Main runtime loop. Returns error instead of panicking.
+pub fn run(config: Config) -> anyhow::Result<()> {
+    let mut cap: capture::Capture = capture::Capture::open(&config.interface)?;
 
     let ips: Vec<std::net::IpAddr> = cap.host_ips();
     println!("IP address of this device:{:?}", ips);
     let iface_owned: pnet::datalink::NetworkInterface = cap.interface().clone();
 
     loop {
-        match cap.next_ethernet() {
-            Ok(frame) => crate::handler::handle_ethernet_frame(
-                &iface_owned,
-                &frame,
-                ips.clone(),
-                config.noudp,
-            ),
-            Err(e) => panic!("{}", e),
-        }
+        let frame = cap.next_ethernet()?;
+        crate::handler::handle_ethernet_frame(
+            &iface_owned,
+            &frame,
+            ips.clone(),
+            config.noudp,
+        );
     }
 }

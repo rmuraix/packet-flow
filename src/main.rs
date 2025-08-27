@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::process::ExitCode;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -11,12 +12,16 @@ struct Cli {
     noudp: bool,
 }
 
-fn main() {
+fn main() -> ExitCode {
     let cli: Cli = Cli::parse();
     let config = packet_flow::Config {
         interface: cli.interface,
         noudp: cli.noudp,
     };
-
-    packet_flow::run(config)
+    if let Err(err) = packet_flow::run(config) {
+        eprintln!("packet-flow error: {:#}", err);
+        return ExitCode::from(1);
+    }
+    // run() currently never returns; OK for future extensibility.
+    ExitCode::SUCCESS
 }

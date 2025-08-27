@@ -12,17 +12,17 @@ pub struct Capture {
 }
 
 impl Capture {
-    pub fn open(iface_name: &str) -> Result<Self, String> {
+    pub fn open(iface_name: &str) -> anyhow::Result<Self> {
         let interfaces: Vec<NetworkInterface> = datalink::interfaces();
         let interface: NetworkInterface = interfaces
             .into_iter()
             .find(|iface: &NetworkInterface| iface.name == iface_name)
-            .ok_or_else(|| format!("No such network interface: {}", iface_name))?;
+            .ok_or_else(|| anyhow::anyhow!("No such network interface: {}", iface_name))?;
 
         let (_, rx) = match datalink::channel(&interface, Default::default()) {
             Ok(Ethernet(tx, rx)) => (tx, rx),
-            Ok(_) => return Err("packet-flow: unhandled channel type".into()),
-            Err(e) => return Err(format!("packet-flow: unable to create channel: {}", e)),
+            Ok(_) => return Err(anyhow::anyhow!("packet-flow: unhandled channel type")),
+            Err(e) => return Err(anyhow::anyhow!("packet-flow: unable to create channel: {}", e)),
         };
 
         Ok(Self {
@@ -50,7 +50,7 @@ impl Capture {
         ips
     }
 
-    pub fn next_ethernet<'a>(&'a mut self) -> Result<EthernetPacket<'a>, String> {
+    pub fn next_ethernet<'a>(&'a mut self) -> anyhow::Result<EthernetPacket<'a>> {
         match self.rx.next() {
             Ok(packet) => {
                 let payload_offset;
@@ -92,7 +92,7 @@ impl Capture {
                 }
                 Ok(EthernetPacket::new(packet).unwrap())
             }
-            Err(e) => Err(format!("packet-flow: unable to receive packet: {}", e)),
+            Err(e) => Err(anyhow::anyhow!("packet-flow: unable to receive packet: {}", e)),
         }
     }
 }
