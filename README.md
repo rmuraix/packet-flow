@@ -6,10 +6,16 @@ Simple packet capture
 
 ![screen shot](./static/packet-flow_screenShot.png)
 
+## Installation
+
+```shell
+cargo install --git https://github.com/rmuraix/packet-flow
+```
+
 ## Usage
 
 ```shell
-sudo path/to/packet-flow -i <NETWORK INTERFACE>
+sudo packet-flow -i <NETWORK INTERFACE>
 ```
 
 ```
